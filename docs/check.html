@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>เช็คประกันสินค้า</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#E9EEF1;--surface:#FFFFFF;--surface-2:#F2F5F7;--ink:#12212B;--ink-2:#51626D;--line:#CBD5DB;
+  --accent:#0A6C85;--accent-ink:#FFFFFF;--accent-soft:#D6EBF1;
+  --ok:#17703F;--ok-bg:#DDF3E6;--warn:#7D5200;--warn-bg:#FBEFCF;--bad:#A32A2A;--bad-bg:#FBE0DE;
+  --f-display:'Chakra Petch','IBM Plex Sans Thai',system-ui,sans-serif;
+  --f-body:'IBM Plex Sans Thai',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E161B;--surface:#16222A;--surface-2:#1C2B34;--ink:#E4EDF1;--ink-2:#8FA3AE;--line:#2B3C46;
+    --accent:#4FC1DD;--accent-ink:#06222B;--accent-soft:#123743;
+    --ok:#6FD79B;--ok-bg:#12301F;--warn:#F0C15A;--warn-bg:#33280E;--bad:#FF8F88;--bad-bg:#3A1A19;color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E161B;--surface:#16222A;--surface-2:#1C2B34;--ink:#E4EDF1;--ink-2:#8FA3AE;--line:#2B3C46;
+  --accent:#4FC1DD;--accent-ink:#06222B;--accent-soft:#123743;
+  --ok:#6FD79B;--ok-bg:#12301F;--warn:#F0C15A;--warn-bg:#33280E;--bad:#FF8F88;--bad-bg:#3A1A19;color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:max(20px,env(safe-area-inset-top,0px)) max(40px,env(safe-area-inset-bottom,0px))}
+.wrap{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.brand{display:flex;align-items:center;gap:12px}
+.mark{width:34px;height:22px;flex:none;background:repeating-linear-gradient(90deg,var(--ink) 0 2px,transparent 2px 4px,var(--ink) 4px 7px,transparent 7px 9px,var(--ink) 9px 10px,transparent 10px 13px)}
+.co{margin:0;font-size:.85rem;color:var(--ink-2);overflow-wrap:anywhere}
+h1{margin:0;font-family:var(--f-display);font-weight:700;font-size:1.6rem;line-height:1.2;text-wrap:balance}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:12px}
+label{font-size:.85rem;color:var(--ink-2);font-weight:500}
+.row{display:flex;gap:8px}
+input[type=text]{width:100%;min-width:0;background:var(--surface);border:2px solid var(--ink-2);border-radius:4px;padding:.75rem .85rem;font-family:var(--f-mono);font-size:1.15rem;letter-spacing:.03em}
+input[type=text]:focus{border-color:var(--accent);outline:0;box-shadow:0 0 0 3px var(--accent-soft)}
+.primary{background:var(--accent);color:var(--accent-ink);border:0;border-radius:4px;padding:0 1.2rem;font-weight:600;white-space:nowrap}
+.alt{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn{background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:.65rem .6rem;font-size:.95rem;text-align:center;display:block;cursor:pointer}
+.btn:hover{border-color:var(--ink-2)}
+.hint{margin:0;font-size:.85rem;color:var(--ink-2)}
+#cam{position:fixed;inset:0;z-index:20;background:#000;display:flex;flex-direction:column;padding:max(12px,env(safe-area-inset-top,0px)) 12px max(12px,env(safe-area-inset-bottom,0px))}
+#cam p{color:#fff;margin:6px 0 10px;text-align:center;font-size:.95rem}
+#reader{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+#reader video{max-width:100%;max-height:100%}
+#cam button{margin-top:10px;background:#fff;color:#000;border:0;border-radius:4px;padding:.8rem;font-weight:600}
+.result{border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--surface)}
+.verdict{padding:16px 18px;display:flex;flex-direction:column;gap:2px}
+.verdict .v{font-family:var(--f-display);font-weight:700;font-size:1.75rem;line-height:1.15;text-wrap:balance}
+.verdict .d{font-size:1rem}
+.verdict.inw{background:var(--ok-bg);color:var(--ok)}
+.verdict.soon,.verdict.stock{background:var(--warn-bg);color:var(--warn)}
+.verdict.exp,.verdict.none{background:var(--bad-bg);color:var(--bad)}
+.verdict.info{background:var(--accent-soft);color:var(--accent)}
+.body{padding:14px 18px;display:flex;flex-direction:column;gap:12px}
+.prod{font-weight:600;font-size:1.05rem;overflow-wrap:anywhere}
+.sticker{font-family:var(--f-mono);font-size:1.05rem;background:var(--surface-2);border:1px dashed var(--ink-2);border-radius:3px;padding:.5rem .75rem;overflow-wrap:anywhere}
+dl{margin:0;display:grid;grid-template-columns:1fr 1fr;gap:10px 16px}
+dl div{min-width:0}
+dt{font-size:.78rem;color:var(--ink-2)}
+dd{margin:0;overflow-wrap:anywhere}
+.fine{font-size:.8rem;color:var(--ink-2);margin:0}
+a{color:var(--accent)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="brand">
+    <div class="mark" aria-hidden="true"></div>
+    <div>
+      <p class="co" id="co"></p>
+      <h1>เช็คประกันสินค้า</h1>
+    </div>
+  </header>
+
+  <form class="box" id="f" autocomplete="off">
+    <label for="serial">Serial Number (อยู่ใต้เครื่องหรือบนกล่อง)</label>
+    <div class="row">
+      <input type="text" id="serial" autocapitalize="characters" autocomplete="off" spellcheck="false" inputmode="text" placeholder="พิมพ์ Serial">
+      <button class="primary" type="submit" id="go">เช็ค</button>
+    </div>
+    <div class="alt">
+      <button class="btn" type="button" id="scan">สแกนด้วยกล้อง</button>
+      <label class="btn" for="photo" id="photo-l">ถ่ายรูปบาร์โค้ด</label>
+    </div>
+    <input type="file" id="photo" accept="image/*" capture="environment" hidden>
+    <p class="hint" id="msg" aria-live="polite">สแกน QR Code จากใบรับประกันหรือสติกเกอร์ที่ตัวเครื่องได้เลย</p>
+  </form>
+
+  <div id="out" aria-live="polite"></div>
+
+  <p class="fine" id="phone-l" hidden></p>
+  <p class="fine">ข้อมูลตามที่ร้านบันทึกไว้ ใช้ประกอบกับใบเสร็จรับเงิน ไม่ใช่เอกสารยืนยันสิทธิ์ประกันจากผู้ผลิต</p>
+</div>
+
+<div id="cam" hidden>
+  <p>เล็งกล้องไปที่ QR Code หรือบาร์โค้ด</p>
+  <div id="reader"></div>
+  <button type="button" id="cam-x">ปิดกล้อง</button>
+</div>
+<div id="reader-file" hidden></div>
+
+<script src="config.js"></script>
+<script src="vendor/supabase.js"></script>
+<script src="vendor/html5-qrcode.min.js"></script>
+<script src="js/data.js"></script>
+<script>
+(function(){
+'use strict';
+var $=function(s){return document.querySelector(s)};
+var esc=function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})};
+var D=window.Data;
+if(D.company){$('#co').textContent=D.company;document.title='เช็คประกันสินค้า | '+D.company}
+if(D.phone){var p=$('#phone-l');p.hidden=false;p.innerHTML='สอบถามร้าน: <a href="tel:'+esc(D.phone.replace(/[^0-9+]/g,''))+'">'+esc(D.phone)+'</a>'}
+
+function fmt(x){var m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(x||''));if(!m)return '—';return new Date(+m[1],+m[2]-1,+m[3]).toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'})}
+function msg(t){$('#msg').textContent=t}
+function verdict(cls,v,d){return '<div class="verdict '+cls+'"><span class="v">'+esc(v)+'</span>'+(d?'<span class="d">'+esc(d)+'</span>':'')+'</div>'}
+
+function render(r,serial){
+  var out=$('#out');
+  if(!r||r.ok===false){
+    var t=r&&r.error==='rate_limited'?['เช็คบ่อยเกินไป','รอสักครู่ (ประมาณ 10 นาที) แล้วลองใหม่']:['Serial ไม่ถูกต้อง','ตรวจว่ายาว 4–64 ตัวอักษร ไม่มีเว้นวรรคแปลก ๆ'];
+    out.innerHTML='<div class="result">'+verdict('info',t[0],t[1])+'</div>';return;
+  }
+  if(!r.found){
+    out.innerHTML='<div class="result">'+verdict('none','ไม่พบ Serial นี้','ไม่มีในระบบของ '+(D.company||'ร้าน')+' ตรวจตัวเลขอีกครั้ง หรือสินค้าอาจซื้อจากที่อื่น')+
+      '<div class="body"><div class="sticker">'+esc(serial)+'</div></div></div>';return;
+  }
+  var head,hasEnd=r.sold&&r.warrantyEnd;
+  if(!r.sold){head=verdict('stock','ยังไม่พบวันที่ขาย','ร้านยังไม่ได้บันทึกการขายเครื่องนี้ ติดต่อร้านพร้อมใบเสร็จเพื่อลงทะเบียนประกัน')}
+  else if(!hasEnd){head=verdict('info','ไม่พบวันสิ้นสุดประกัน','ติดต่อร้านพร้อมใบเสร็จ')}
+  else{
+    var s=D.stateFromEnd(r.warrantyEnd,r.today);
+    if(s.state==='exp')head=verdict('exp','หมดประกันแล้ว','สิ้นสุดเมื่อ '+fmt(r.warrantyEnd)+' ('+(-s.days)+' วันที่แล้ว)');
+    else if(s.days===0)head=verdict('soon','วันสุดท้ายของประกัน','สิ้นสุดวันนี้ '+fmt(r.warrantyEnd));
+    else head=verdict(s.state==='soon'?'soon':'inw',s.state==='soon'?'ใกล้หมดประกัน':'อยู่ในประกัน','เหลือ '+s.days+' วัน · สิ้นสุด '+fmt(r.warrantyEnd));
+  }
+  var rows=[['ยี่ห้อ',r.brand],['ประเภท',r.category],['ระยะประกัน',r.warrantyMonths!=null?r.warrantyMonths+' เดือน นับจากวันขาย':''],['ประกันสิ้นสุด',hasEnd?fmt(r.warrantyEnd):'']].filter(function(x){return x[1]});
+  out.innerHTML='<div class="result">'+head+'<div class="body"><div class="prod">'+esc(r.product||'')+'</div><div class="sticker">'+esc(r.serial||serial)+'</div>'+
+    (rows.length?'<dl>'+rows.map(function(x){return '<div><dt>'+esc(x[0])+'</dt><dd>'+esc(x[1])+'</dd></div>'}).join('')+'</dl>':'')+'</div></div>';
+}
+
+var busy=false;
+function check(raw){
+  var serial=String(raw||'').replace(/\s+/g,'').toUpperCase();
+  if(!serial){msg('กรอกหรือสแกน Serial ก่อน');$('#serial').focus();return}
+  if(busy)return;busy=true;
+  $('#serial').value=serial;$('#go').disabled=true;$('#go').textContent='…';msg('กำลังตรวจสอบ…');
+  D.publicCheck(serial).then(function(r){render(r,serial);msg('')},function(){
+    $('#out').innerHTML='<div class="result">'+verdict('info','เชื่อมต่อไม่ได้','ตรวจอินเทอร์เน็ตแล้วลองใหม่')+'</div>';msg('');
+  }).then(function(){busy=false;$('#go').disabled=false;$('#go').textContent='เช็ค';try{history.replaceState(null,'','?s='+encodeURIComponent(serial))}catch(e){}});
+}
+$('#f').addEventListener('submit',function(e){e.preventDefault();check($('#serial').value)});
+
+/* QR ที่พิมพ์ไว้เป็นลิงก์ ?s=SERIAL ส่วนบาร์โค้ดเส้นเป็น Serial ตรง ๆ */
+function serialFromScan(text){
+  text=String(text||'').trim();
+  try{if(/^https?:\/\//i.test(text)){var u=new URL(text);var s=u.searchParams.get('s');if(s)return s}}catch(e){}
+  return text;
+}
+var F=window.Html5QrcodeSupportedFormats;
+var FORMATS=F?[F.QR_CODE,F.CODE_128,F.CODE_39,F.CODE_93,F.EAN_13,F.EAN_8,F.ITF,F.CODABAR,F.UPC_A,F.DATA_MATRIX]:undefined;
+var cam=null;
+function closeCam(){
+  $('#cam').hidden=true;
+  var c=cam;cam=null;
+  if(c){c.stop().then(function(){try{c.clear()}catch(e){}},function(){})}
+}
+$('#scan').addEventListener('click',function(){
+  if(!window.Html5Qrcode){msg('โหลดตัวสแกนไม่สำเร็จ ใช้ปุ่มถ่ายรูปหรือพิมพ์ Serial แทน');return}
+  if(!window.isSecureContext||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){msg('หน้านี้เปิดกล้องไม่ได้ ใช้ปุ่มถ่ายรูปบาร์โค้ดหรือพิมพ์ Serial แทน');return}
+  $('#cam').hidden=false;
+  cam=new Html5Qrcode('reader',{formatsToSupport:FORMATS,verbose:false});
+  var mine=cam;
+  mine.start({facingMode:'environment'},{fps:10,qrbox:function(w,h){var s=Math.floor(Math.min(w,h)*0.8);return {width:s,height:s}}},
+    function(text){if(cam!==mine)return;closeCam();check(serialFromScan(text))},function(){})
+  .catch(function(){closeCam();msg('เปิดกล้องไม่ได้ อนุญาตการใช้กล้องในเบราว์เซอร์ หรือใช้ปุ่มถ่ายรูปบาร์โค้ดแทน')});
+});
+$('#cam-x').addEventListener('click',closeCam);
+$('#photo').addEventListener('change',function(){
+  var f=this.files&&this.files[0];this.value='';
+  if(!f)return;
+  if(!window.Html5Qrcode){msg('โหลดตัวสแกนไม่สำเร็จ พิมพ์ Serial แทน');return}
+  msg('กำลังอ่านรูป…');
+  var sc=new Html5Qrcode('reader-file',{formatsToSupport:FORMATS,verbose:false});
+  sc.scanFile(f,false).then(function(text){try{sc.clear()}catch(e){}check(serialFromScan(text))},function(){msg('อ่านบาร์โค้ดจากรูปไม่ได้ ถ่ายใหม่ให้ใกล้และชัดขึ้น หรือพิมพ์ Serial แทน')});
+});
+
+var q=new URLSearchParams(location.search).get('s');
+if(q)check(q);else $('#serial').focus();
+})();
+</script>
+</body>
+</html>

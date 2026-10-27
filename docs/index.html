@@ -1,0 +1,896 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Serial Desk</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<style>
+/* Layout concept: a receiving-counter console. One status strip on top, four big mode tabs, and a scan field that always owns the focus so a USB or Bluetooth barcode gun can fire at any time. */
+:root{
+  --bg:#E9EEF1;
+  --surface:#FFFFFF;
+  --surface-2:#F2F5F7;
+  --ink:#12212B;
+  --ink-2:#51626D;
+  --line:#CBD5DB;
+  --accent:#0A6C85;
+  --accent-ink:#FFFFFF;
+  --accent-soft:#D6EBF1;
+  --ok:#17703F;
+  --ok-bg:#DDF3E6;
+  --warn:#7D5200;
+  --warn-bg:#FBEFCF;
+  --bad:#A32A2A;
+  --bad-bg:#FBE0DE;
+  --f-display:'Chakra Petch','IBM Plex Sans Thai',system-ui,sans-serif;
+  --f-body:'IBM Plex Sans Thai',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E161B;--surface:#16222A;--surface-2:#1C2B34;--ink:#E4EDF1;--ink-2:#8FA3AE;--line:#2B3C46;
+    --accent:#4FC1DD;--accent-ink:#06222B;--accent-soft:#123743;
+    --ok:#6FD79B;--ok-bg:#12301F;--warn:#F0C15A;--warn-bg:#33280E;--bad:#FF8F88;--bad-bg:#3A1A19;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E161B;--surface:#16222A;--surface-2:#1C2B34;--ink:#E4EDF1;--ink-2:#8FA3AE;--line:#2B3C46;
+  --accent:#4FC1DD;--accent-ink:#06222B;--accent-soft:#123743;
+  --ok:#6FD79B;--ok-bg:#12301F;--warn:#F0C15A;--warn-bg:#33280E;--bad:#FF8F88;--bad-bg:#3A1A19;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:20px 48px;
+}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono);letter-spacing:.02em}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.mark{width:34px;height:22px;flex:none;background:repeating-linear-gradient(90deg,var(--ink) 0 2px,transparent 2px 4px,var(--ink) 4px 7px,transparent 7px 9px,var(--ink) 9px 10px,transparent 10px 13px)}
+.brand h1{margin:0;font-family:var(--f-display);font-weight:700;font-size:1.45rem;letter-spacing:.06em;text-transform:uppercase;line-height:1.1}
+.brand p{margin:0;color:var(--ink-2);font-size:.85rem}
+.top-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.chip-status{display:inline-flex;align-items:center;gap:7px;font-size:.82rem;color:var(--ink-2)}
+.chip-status i{width:9px;height:9px;border-radius:50%;background:var(--warn)}
+.chip-status.live i{background:var(--ok)}
+.chip-status.off i{background:var(--bad)}
+.ghost{background:transparent;border:1px solid var(--line);border-radius:4px;padding:.35rem .7rem;font-size:.85rem}
+.ghost:hover{border-color:var(--ink-2)}
+.ghost[aria-pressed="true"]{background:var(--surface);}
+
+/* stats strip */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));background:var(--surface);border:1px solid var(--line);border-radius:6px}
+.stat{padding:12px 16px;display:flex;flex-direction:column;gap:2px;border-right:1px solid var(--line);min-width:0}
+.stat:last-child{border-right:0}
+.stat b{font-family:var(--f-display);font-size:1.9rem;font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat span{font-size:.82rem;color:var(--ink-2)}
+@media (max-width:520px){.stat{border-right:0;border-bottom:1px solid var(--line)}.stat:last-child{border-bottom:0}}
+
+.notice{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 14px;border-radius:6px;background:var(--warn-bg);color:var(--warn);font-size:.9rem}
+.notice[hidden]{display:none!important}
+.notice.bad{background:var(--bad-bg);color:var(--bad)}
+.notice button{border:1px solid currentColor;background:transparent;border-radius:4px;padding:.25rem .6rem;font-size:.85rem;color:inherit}
+
+/* tabs */
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-bottom:2px solid var(--line)}
+.tab{background:transparent;border:0;border-bottom:4px solid transparent;margin-bottom:-2px;padding:12px 6px 10px;text-align:center;font-family:var(--f-display);font-weight:600;font-size:1.05rem;color:var(--ink-2);display:flex;flex-direction:column;gap:0;line-height:1.25}
+.tab small{font-family:var(--f-body);font-weight:400;font-size:.74rem;opacity:.9}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tab:hover{color:var(--ink)}
+@media (max-width:520px){.tab small{display:none}.tab{font-size:.95rem}}
+
+.panel{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));align-items:start}
+.panel[hidden]{display:none!important}
+.panel.one{grid-template-columns:1fr}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.box h2{margin:0;font-family:var(--f-display);font-size:1.05rem;font-weight:600;letter-spacing:.03em}
+.box h2 small{font-family:var(--f-body);font-weight:400;color:var(--ink-2);font-size:.82rem;letter-spacing:0;margin-left:6px}
+.fields{display:grid;gap:12px;grid-template-columns:1fr 1fr}
+.fields .full{grid-column:1/-1}
+@media (max-width:420px){.fields{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label{font-size:.8rem;color:var(--ink-2);font-weight:500}
+input[type=text],input[type=search],input[type=number],input[type=tel],input[type=email],input[type=password],select{
+  width:100%;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:.55rem .7rem;font-size:1rem;min-width:0
+}
+input::placeholder{color:var(--ink-2);opacity:.7}
+input:disabled,button:disabled{opacity:.5;cursor:not-allowed}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--surface-2);border-radius:4px;padding:.3rem .65rem;font-size:.85rem}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.months{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.months input{width:5.5rem}
+
+/* scan block */
+.scan{display:flex;flex-direction:column;gap:8px}
+.scan-label{display:flex;align-items:center;gap:8px;font-family:var(--f-display);font-weight:600;font-size:1rem}
+.led{width:11px;height:11px;border-radius:50%;background:var(--line);flex:none}
+.scan-state{margin-left:auto;font-family:var(--f-body);font-weight:400;font-size:.8rem;color:var(--ink-2)}
+.scan-state .on{display:none}
+.scan:focus-within .led{background:var(--ok);box-shadow:0 0 0 4px var(--ok-bg)}
+.scan:focus-within .scan-state .on{display:inline;color:var(--ok)}
+.scan:focus-within .scan-state .off{display:none}
+.scan-row{display:flex;gap:8px}
+.scan-row input{font-family:var(--f-mono);font-size:1.3rem;padding:.8rem .9rem;border:2px solid var(--ink-2);letter-spacing:.04em}
+.scan-row input:focus{border-color:var(--accent);outline:0;box-shadow:0 0 0 3px var(--accent-soft)}
+.primary{background:var(--accent);color:var(--accent-ink);border:0;border-radius:4px;padding:0 1.1rem;font-weight:600;white-space:nowrap}
+.primary:hover{filter:brightness(1.08)}
+.hint{margin:0;font-size:.8rem;color:var(--ink-2)}
+.batchbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.batchbar .n{font-family:var(--f-display);font-size:1.15rem;font-weight:600;font-variant-numeric:tabular-nums}
+.batchbar .n span{font-family:var(--f-body);font-weight:400;font-size:.85rem;color:var(--ink-2);margin-left:4px}
+
+/* log */
+.log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;border-top:1px solid var(--line);max-height:420px;overflow-y:auto}
+.log li{display:grid;grid-template-columns:22px 1fr auto;gap:8px;padding:8px 2px;border-bottom:1px solid var(--line);align-items:baseline;font-size:.9rem}
+.log li .g{font-weight:700;text-align:center}
+.log li.ok .g{color:var(--ok)}
+.log li.warn .g{color:var(--warn)}
+.log li.err .g{color:var(--bad)}
+.log li .s{font-family:var(--f-mono);font-size:.95rem;overflow-wrap:anywhere}
+.log li .m{display:block;font-family:var(--f-body);font-size:.82rem;color:var(--ink-2);overflow-wrap:anywhere}
+.log li.warn .m{color:var(--warn)}
+.log li.err .m{color:var(--bad)}
+.log li time{font-size:.75rem;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.empty{padding:18px 4px;color:var(--ink-2);font-size:.9rem}
+.empty b{color:var(--ink)}
+
+/* pills */
+.pill{display:inline-block;padding:.1rem .55rem;border-radius:3px;font-size:.78rem;font-weight:600;white-space:nowrap}
+.pill.stock{background:var(--accent-soft);color:var(--accent)}
+.pill.inw{background:var(--ok-bg);color:var(--ok)}
+.pill.soon{background:var(--warn-bg);color:var(--warn)}
+.pill.exp{background:var(--bad-bg);color:var(--bad)}
+
+/* check result */
+.result{border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--surface)}
+.verdict{padding:16px 18px;display:flex;flex-direction:column;gap:2px}
+.verdict .v{font-family:var(--f-display);font-weight:700;font-size:1.7rem;line-height:1.15}
+.verdict .d{font-size:1rem}
+.verdict.stock{background:var(--accent-soft);color:var(--accent)}
+.verdict.inw{background:var(--ok-bg);color:var(--ok)}
+.verdict.soon{background:var(--warn-bg);color:var(--warn)}
+.verdict.exp,.verdict.none{background:var(--bad-bg);color:var(--bad)}
+.result .body{padding:14px 18px;display:flex;flex-direction:column;gap:12px}
+.sticker{font-family:var(--f-mono);font-size:1.15rem;background:var(--surface-2);border:1px dashed var(--ink-2);border-radius:3px;padding:.5rem .75rem;overflow-wrap:anywhere}
+dl.kv{margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px 20px}
+dl.kv div{min-width:0}
+dl.kv dt{font-size:.76rem;color:var(--ink-2)}
+dl.kv dd{margin:0;overflow-wrap:anywhere}
+
+/* stock table */
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.toolbar .search{flex:1 1 240px;min-width:0}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:780px;font-size:.9rem}
+th{position:sticky;top:0;text-align:left;font-size:.76rem;font-weight:600;color:var(--ink-2);padding:9px 12px;background:var(--surface-2);border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.num,th.num{font-variant-numeric:tabular-nums}
+.link{background:none;border:0;padding:0;font-family:var(--f-mono);font-size:.9rem;color:var(--accent);text-align:left;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
+tr.detail td{background:var(--surface-2)}
+.detail-in{display:flex;flex-direction:column;gap:12px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:.4rem .8rem;font-size:.88rem}
+.btn.danger{color:var(--bad);border-color:var(--bad)}
+.btn.armed{background:var(--bad);color:#fff;border-color:var(--bad)}
+.tnote{font-size:.8rem;color:var(--ink-2)}
+
+.linkbtn{background:none;border:0;padding:2px 0;color:var(--accent);font-size:.8rem;text-align:left;text-decoration:underline;text-underline-offset:3px;align-self:flex-start}
+.addrow{display:flex;gap:6px}
+a.btn{text-decoration:none;display:inline-block;color:inherit}
+[hidden]{display:none!important}
+body{margin:0}
+a.ghost{text-decoration:none;color:inherit;display:inline-block}
+.login{max-width:420px;margin:6vh auto 0}
+.login .box{gap:12px}
+.login .primary{padding:.75rem 1rem;font-size:1rem}
+#who{font-size:.82rem;color:var(--ink-2)}
+a.btn:hover{border-color:var(--ink-2)}
+.src{margin:0;font-size:.8rem;color:var(--ink-2)}
+.sticker{user-select:all}
+.wnote{min-height:1.2em;color:var(--accent)}
+.defs{border-top:1px solid var(--line);padding-top:12px}
+.defs summary{cursor:pointer;font-weight:500;font-size:.9rem}
+.defs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin:12px 0}
+.defs .actions{align-items:center}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<section class="login" id="login" hidden>
+  <form class="box" id="f-login" autocomplete="on">
+    <div class="brand"><div class="mark" aria-hidden="true"></div><div><h1>Serial Desk</h1><p id="login-co"></p></div></div>
+    <div class="field"><label for="l-email">อีเมลพนักงาน</label><input type="email" id="l-email" autocomplete="username" required></div>
+    <div class="field"><label for="l-pw">รหัสผ่าน</label><input type="password" id="l-pw" autocomplete="current-password" required></div>
+    <button class="primary" type="submit" id="l-go">เข้าสู่ระบบ</button>
+    <div class="notice bad" id="l-err" hidden></div>
+    <p class="hint">บัญชีพนักงานสร้างโดยผู้ดูแลระบบเท่านั้น ลูกค้าเช็คประกันได้ที่หน้า <a href="check.html">เช็คประกัน</a></p>
+  </form>
+</section>
+
+<div class="wrap" id="app" hidden>
+  <header class="top">
+    <div class="brand">
+      <div class="mark" aria-hidden="true"></div>
+      <div>
+        <h1>Serial Desk</h1>
+        <p id="company">ทะเบียน Serial Number และเช็คประกันสินค้า</p>
+      </div>
+    </div>
+    <div class="top-tools">
+      <span class="chip-status" id="status"><i></i><span>กำลังเชื่อมต่อฐานข้อมูล…</span></span>
+      <button class="ghost" id="sound" type="button" aria-pressed="true">เสียงบี๊บ: เปิด</button>
+      <a class="ghost" href="qr.html" target="_blank" rel="noopener">พิมพ์ QR</a>
+      <a class="ghost" href="check.html" target="_blank" rel="noopener">หน้าเช็คของลูกค้า</a>
+      <span id="who"></span>
+      <button class="ghost" id="logout" type="button">ออกจากระบบ</button>
+    </div>
+  </header>
+
+  <section class="stats" aria-label="สรุปสต็อก">
+    <div class="stat"><b id="n-stock">0</b><span>ในสต็อก (ยังไม่ขาย)</span></div>
+    <div class="stat"><b id="n-sold">0</b><span>ขายแล้ว</span></div>
+    <div class="stat"><b id="n-soon">0</b><span>ประกันใกล้หมด (ภายใน 30 วัน)</span></div>
+  </section>
+
+  <div class="notice" id="demo-note" hidden>โหมดทดลอง ข้อมูลเก็บในเบราว์เซอร์เครื่องนี้เท่านั้น ยังไม่ได้เชื่อมฐานข้อมูลจริง ห้ามใช้งานจริง</div>
+  <div class="notice" id="notice" hidden></div>
+  <div class="notice" id="examples" hidden>
+    <span id="examples-text"></span>
+    <button type="button" id="clear-examples">ล้างข้อมูลตัวอย่าง</button>
+  </div>
+
+  <nav class="tabs" role="tablist" aria-label="โหมดการทำงาน">
+    <button class="tab" role="tab" id="tab-receive" data-tab="receive" aria-selected="true" aria-controls="panel-receive">รับเข้า<small>รับสินค้าจากซัพพลายเออร์</small></button>
+    <button class="tab" role="tab" id="tab-sell" data-tab="sell" aria-selected="false" aria-controls="panel-sell">ขายออก<small>ตัดสต็อก เริ่มนับประกัน</small></button>
+    <button class="tab" role="tab" id="tab-check" data-tab="check" aria-selected="false" aria-controls="panel-check">เช็คประกัน<small>ยิง Serial ดูสถานะ</small></button>
+    <button class="tab" role="tab" id="tab-stock" data-tab="stock" aria-selected="false" aria-controls="panel-stock">สต็อก<small>ค้นหา ส่งออก CSV</small></button>
+  </nav>
+
+  <!-- RECEIVE -->
+  <section class="panel" id="panel-receive" role="tabpanel" aria-labelledby="tab-receive">
+    <div class="box">
+      <h2>รายละเอียดล็อตนี้ <small>ใช้กับทุกเครื่องที่ยิงต่อจากนี้</small></h2>
+      <div class="fields">
+        <div class="field full"><label for="r-product">ชื่อสินค้า / รุ่น</label><input type="text" id="r-product" list="products" autocomplete="off" placeholder="เช่น ASUS TUF Gaming A15 FA507NV"></div>
+        <div class="field"><label for="r-cat">ประเภท</label>
+          <select id="r-cat"><option>โน้ตบุ๊ก</option><option>เดสก์ท็อป</option><option>การ์ดจอ</option><option>CPU</option><option>เมนบอร์ด</option><option>RAM</option><option>SSD / HDD</option><option>จอภาพ</option><option>เครือข่าย</option><option>อื่น ๆ</option></select>
+          <button type="button" class="linkbtn" id="cat-add-toggle">+ เพิ่มประเภทใหม่</button>
+          <div class="addrow" id="cat-add" hidden><input type="text" id="cat-new" maxlength="40" autocomplete="off" placeholder="เช่น เครื่องพิมพ์" aria-label="ชื่อประเภทใหม่"><button type="button" class="btn" id="cat-add-ok">เพิ่ม</button></div>
+        </div>
+        <div class="field"><label for="r-brand">ยี่ห้อ (ตรวจจากชื่อสินค้า)</label><input type="text" id="r-brand" list="brands" autocomplete="off" placeholder="เช่น ASUS"></div>
+        <div class="field full"><label for="r-sup">ซัพพลายเออร์ / เลขที่ PO</label><input type="text" id="r-sup" autocomplete="off" placeholder="เช่น SYNNEX PO-2410-031"></div>
+        <div class="field full"><label for="r-months">ประกัน (เดือน นับจากวันขาย)</label>
+          <div class="months">
+            <div class="chips" id="r-chips"><button type="button" class="chip" data-m="12">12</button><button type="button" class="chip" data-m="24">24</button><button type="button" class="chip" data-m="36">36</button></div>
+            <input type="number" id="r-months" min="0" max="120" inputmode="numeric" value="36">
+          </div>
+        </div>
+      </div>
+      <p class="hint wnote" id="r-wnote" aria-live="polite"></p>
+      <details class="defs" id="defs">
+        <summary>ตั้งค่าระยะประกันตามประเภท (เดือน)</summary>
+        <p class="hint">ระบบเติมระยะประกันให้เองจากประวัติรับเข้าของร้านก่อน ถ้ายังไม่เคยรับสินค้าแบบนี้จะใช้ค่าตามประเภทด้านล่าง ค่าตั้งต้นเป็นค่าโดยประมาณ ให้แก้ตามเอกสารรับประกันของผู้จำหน่ายที่ร้านใช้จริง</p>
+        <div class="defs-grid" id="defs-grid"></div>
+        <div class="actions"><button type="button" class="btn" id="defs-save">บันทึกค่าตั้งต้น</button><span class="tnote" id="defs-msg"></span></div>
+      </details>
+      <datalist id="products"></datalist>
+      <datalist id="brands"></datalist>
+    </div>
+    <div class="box">
+      <form class="scan" id="f-receive" autocomplete="off">
+        <label class="scan-label" for="r-scan"><span class="led"></span>ยิงบาร์โค้ด Serial <span class="scan-state"><span class="on">พร้อมรับสแกน</span><span class="off">คลิกที่ช่องเพื่อสแกน</span></span></label>
+        <div class="scan-row"><input type="text" id="r-scan" class="mono" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ยิงหรือพิมพ์ Serial"><button class="primary" type="submit">บันทึก</button></div>
+        <p class="hint">เครื่องยิงทำงานเหมือนคีย์บอร์ดที่กด Enter ให้เอง ยิงรัว ๆ ได้เลย Serial ซ้ำจะถูกแจ้งเตือนและไม่บันทึกซ้ำ</p>
+      </form>
+      <div class="batchbar"><div class="n"><span id="r-count">0</span><span>เครื่องในล็อตนี้</span></div><button class="ghost" type="button" id="r-reset">เริ่มล็อตใหม่</button></div>
+      <ul class="log" id="r-log"></ul>
+    </div>
+  </section>
+
+  <!-- SELL -->
+  <section class="panel" id="panel-sell" role="tabpanel" aria-labelledby="tab-sell" hidden>
+    <div class="box">
+      <h2>ข้อมูลการขาย <small>ไม่บังคับ แต่ช่วยให้เช็คประกันได้ครบ</small></h2>
+      <div class="fields">
+        <div class="field"><label for="s-cust">ชื่อลูกค้า</label><input type="text" id="s-cust" autocomplete="off" placeholder="เช่น คุณสมชาย ใจดี"></div>
+        <div class="field"><label for="s-phone">เบอร์โทร</label><input type="tel" id="s-phone" autocomplete="off" placeholder="08x-xxx-xxxx"></div>
+        <div class="field"><label for="s-inv">เลขที่ใบขาย / ใบเสร็จ</label><input type="text" id="s-inv" autocomplete="off" placeholder="เช่น INV-2610-0148"></div>
+        <div class="field"><label for="s-months">ประกัน (เดือน)</label><input type="number" id="s-months" min="0" max="120" inputmode="numeric" placeholder="ตามที่รับเข้า"></div>
+      </div>
+      <p class="hint">เว้นช่องประกันว่างไว้ ระบบใช้ระยะประกันที่บันทึกตอนรับเข้า ประกันเริ่มนับจากวันที่ยิงขายออก</p>
+    </div>
+    <div class="box">
+      <form class="scan" id="f-sell" autocomplete="off">
+        <label class="scan-label" for="s-scan"><span class="led"></span>ยิงบาร์โค้ด Serial ที่ขาย <span class="scan-state"><span class="on">พร้อมรับสแกน</span><span class="off">คลิกที่ช่องเพื่อสแกน</span></span></label>
+        <div class="scan-row"><input type="text" id="s-scan" class="mono" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ยิงหรือพิมพ์ Serial"><button class="primary" type="submit">ขายออก</button></div>
+        <p class="hint">ขายหลายเครื่องในบิลเดียวให้ยิงต่อกันได้เลย ถ้าไม่พบ Serial แสดงว่ายังไม่ได้รับเข้าสต็อก</p>
+      </form>
+      <div class="batchbar"><div class="n"><span id="s-count">0</span><span>เครื่องในบิลนี้</span></div><button class="ghost" type="button" id="s-reset">ลูกค้ารายถัดไป</button></div>
+      <ul class="log" id="s-log"></ul>
+    </div>
+  </section>
+
+  <!-- CHECK -->
+  <section class="panel" id="panel-check" role="tabpanel" aria-labelledby="tab-check" hidden>
+    <div class="box">
+      <form class="scan" id="f-check" autocomplete="off">
+        <label class="scan-label" for="c-scan"><span class="led"></span>ยิงหรือพิมพ์ Serial เพื่อเช็คประกัน <span class="scan-state"><span class="on">พร้อมรับสแกน</span><span class="off">คลิกที่ช่องเพื่อสแกน</span></span></label>
+        <div class="scan-row"><input type="text" id="c-scan" class="mono" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ยิงหรือพิมพ์ Serial"><button class="primary" type="submit">เช็ค</button></div>
+      </form>
+      <div id="c-result"><p class="empty">ยิง Serial จากสติกเกอร์ใต้เครื่องหรือกล่อง ผลประกันจะขึ้นตรงนี้</p></div>
+    </div>
+  </section>
+
+  <!-- STOCK -->
+  <section class="panel one" id="panel-stock" role="tabpanel" aria-labelledby="tab-stock" hidden>
+    <div class="toolbar">
+      <div class="search"><input type="search" id="st-q" autocomplete="off" placeholder="ค้นหา Serial, ชื่อสินค้า, ลูกค้า, เลขที่ใบขาย (ยิงบาร์โค้ดลงช่องนี้ได้)" aria-label="ค้นหาในสต็อก"></div>
+      <button class="ghost" type="button" id="export" hidden>ส่งออก CSV</button>
+      <button class="ghost" type="button" id="qr-bulk">พิมพ์ QR (รายการที่แสดง)</button>
+    </div>
+    <div class="chips" id="st-filters">
+      <button class="chip" type="button" data-f="all" aria-pressed="true">ทั้งหมด</button>
+      <button class="chip" type="button" data-f="stock" aria-pressed="false">ในสต็อก</button>
+      <button class="chip" type="button" data-f="inw" aria-pressed="false">ในประกัน</button>
+      <button class="chip" type="button" data-f="soon" aria-pressed="false">ใกล้หมด (30 วัน)</button>
+      <button class="chip" type="button" data-f="exp" aria-pressed="false">หมดประกัน</button>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Serial</th><th>สินค้า</th><th>สถานะ</th><th>ลูกค้า</th><th class="num">หมดประกัน</th><th class="num">รับเข้า</th></tr></thead>
+        <tbody id="st-body"></tbody>
+      </table>
+    </div>
+    <p class="tnote" id="st-note"></p>
+  </section>
+</div>
+
+<script src="config.js"></script>
+<script src="vendor/supabase.js"></script>
+<script src="js/data.js"></script>
+<script>
+(function(){
+'use strict';
+var $=function(s,r){return (r||document).querySelector(s)};
+var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+var esc=function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})};
+var LS={
+  get:function(k,d){try{var v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},
+  set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+};
+
+var S={db:null,dl:null,canWrite:null,units:[],byId:new Map(),loaded:false,err:false,tab:'receive',
+  logs:{receive:[],sell:[]},counts:{receive:0,sell:0},open:null,filter:'all',q:'',
+  sound:LS.get('sd.sound',true),check:null,armed:null,defaults:{}};
+
+/* ---------- helpers ---------- */
+function norm(s){return String(s||'').replace(/\s+/g,'').toUpperCase()}
+function sid(serial){return serial.replace(/[^A-Z0-9_\-+@:]/g,function(c){return '~'+c.charCodeAt(0).toString(16).toUpperCase()})}
+function pad(n){return n<10?'0'+n:''+n}
+function ymd(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+function parseDay(x){
+  if(!x)return null;
+  if(/^\d{4}-\d{2}-\d{2}$/.test(x)){var p=x.split('-');return new Date(+p[0],+p[1]-1,+p[2])}
+  var d=new Date(x);return isNaN(d)?null:d;
+}
+function fmtDate(x){var d=parseDay(x);return d?d.toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric'}):'—'}
+function fmtTime(d){return d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+function addMonths(d,m){
+  var x=new Date(d.getFullYear(),d.getMonth(),1);x.setMonth(x.getMonth()+m);
+  var last=new Date(x.getFullYear(),x.getMonth()+1,0).getDate();
+  return new Date(x.getFullYear(),x.getMonth(),Math.min(d.getDate(),last));
+}
+function startOfDay(d){return new Date(d.getFullYear(),d.getMonth(),d.getDate())}
+function clampMonths(v,def){var n=parseInt(v,10);if(isNaN(n))return def;return Math.max(0,Math.min(120,n))}
+
+function warranty(u){
+  if(!u||u.status!=='sold'||!u.warrantyEnd)return {state:'stock'};
+  var end=parseDay(u.warrantyEnd);if(!end)return {state:'stock'};
+  var days=Math.round((startOfDay(end)-startOfDay(new Date()))/864e5);
+  if(days<0)return {state:'exp',days:days,end:end};
+  if(days<=30)return {state:'soon',days:days,end:end};
+  return {state:'inw',days:days,end:end};
+}
+var STATE_TH={stock:'ในสต็อก',inw:'ในประกัน',soon:'ใกล้หมดประกัน',exp:'หมดประกัน'};
+
+/* ---------- brands, official check links, warranty suggestions ---------- */
+var BRANDS=[
+  {n:'ASUS',k:['ASUS','ROG','TUF','VIVOBOOK','ZENBOOK','PROART'],u:'https://www.asus.com/au/support/warranty-status-inquiry/'},
+  {n:'Lenovo',k:['LENOVO','IDEAPAD','THINKPAD','THINKBOOK','LEGION','LOQ'],u:'https://support.lenovo.com/lc/en/warrantylookup'},
+  {n:'HP',k:['HP','OMEN','VICTUS','PAVILION','ENVY','SPECTRE','ELITEBOOK','PROBOOK'],u:'https://support.hp.com/us-en/check-warranty'},
+  {n:'Dell',k:['DELL','ALIENWARE','INSPIRON','LATITUDE','XPS','VOSTRO'],u:'https://www.dell.com/support/contractservices/'},
+  {n:'Acer',k:['ACER','ASPIRE','NITRO','PREDATOR','SWIFT','TRAVELMATE'],u:'https://register.acer.co.th/WarrantyCheck/warr_chk.aspx'},
+  {n:'MSI',k:['MSI','PULSAR','KATANA','CYBORG','STEALTH','RAIDER'],u:'https://account.msi.com/services/warranty-book'}
+];
+var OTHER_BRANDS=['GIGABYTE','AORUS','Kingston','Samsung','WD','Seagate','Corsair','Logitech','TP-Link','Zotac','Palit','Inno3D','Intel','AMD','Apple','Microsoft','ADATA','Crucial','Cooler Master','Razer'];
+var DEF_MONTHS={'โน้ตบุ๊ก':24,'เดสก์ท็อป':24,'การ์ดจอ':36,'CPU':36,'เมนบอร์ด':36,'RAM':36,'SSD / HDD':36,'จอภาพ':36,'เครือข่าย':12,'อื่น ๆ':12};
+function hasKey(text,key){return new RegExp('(^|[^A-Z0-9])'+key.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'([^A-Z0-9]|$)').test(text)}
+function detectBrand(text){
+  var t=String(text||'').toUpperCase();if(!t)return null;
+  for(var i=0;i<BRANDS.length;i++){for(var j=0;j<BRANDS[i].k.length;j++){if(hasKey(t,BRANDS[i].k[j]))return BRANDS[i]}}
+  for(var m=0;m<OTHER_BRANDS.length;m++){if(hasKey(t,OTHER_BRANDS[m].toUpperCase()))return {n:OTHER_BRANDS[m]}}
+  return null;
+}
+function brandInfo(u){
+  var nm=String(u.brand||'').toUpperCase();
+  var hit=BRANDS.filter(function(x){return x.n.toUpperCase()===nm})[0];
+  return hit||detectBrand(u.brand)||detectBrand(u.product);
+}
+function linkBtns(u){
+  var b=brandInfo(u),h='';
+  if(b&&b.u)h+='<a class="btn" href="'+esc(b.u)+'" target="_blank" rel="noopener noreferrer">เช็คกับ '+esc(b.n)+' (เว็บทางการ)</a>';
+  h+='<button type="button" class="btn" data-copy="'+esc(u.serial||'')+'">คัดลอก Serial</button>';
+  return '<div class="actions">'+h+'</div>'+(b&&b.u?'<p class="src">เว็บทางการของผู้ผลิตแสดงประกันตามรุ่นและประเทศที่ขาย ต้องวาง Serial เอง กดคัดลอกแล้ววางได้เลย</p>':'');
+}
+function learned(product,brand,cat){
+  var pool=S.units.filter(function(u){return !u.example&&u.warrantyMonths!=null&&u.receivedAt});
+  var p=String(product||'').trim().toLowerCase();
+  if(p){
+    var same=pool.filter(function(u){return String(u.product||'').trim().toLowerCase()===p}).sort(function(a,b){return a.receivedAt<b.receivedAt?1:-1});
+    if(same.length)return {m:same[0].warrantyMonths,src:'จากประวัติร้าน: รุ่นนี้เคยรับเข้า '+same.length+' เครื่อง ประกัน '+same[0].warrantyMonths+' เดือน'};
+  }
+  var b=String(brand||'').toLowerCase();
+  if(b){
+    var grp=pool.filter(function(u){return String(u.brand||'').toLowerCase()===b&&u.category===cat});
+    if(grp.length){
+      var cnt={};grp.forEach(function(u){cnt[u.warrantyMonths]=(cnt[u.warrantyMonths]||0)+1});
+      var best=Object.keys(cnt).sort(function(x,y){return cnt[y]-cnt[x]})[0];
+      return {m:+best,src:'จากประวัติร้าน: '+brand+' ประเภท'+cat+' ส่วนใหญ่ประกัน '+best+' เดือน'};
+    }
+  }
+  var d=S.defaults&&S.defaults[cat]!=null?S.defaults[cat]:DEF_MONTHS[cat];
+  if(d!=null)return {m:d,src:'ค่าตั้งต้นของประเภท'+cat+' ('+d+' เดือน) ตรวจกับเอกสารของผู้จำหน่ายก่อนยิง'};
+  return null;
+}
+function renderCats(){
+  var sel=$('#r-cat'),cur=sel.value;
+  $$('#r-cat option[data-custom]').forEach(function(o){o.parentNode.removeChild(o)});
+  var have={};$$('#r-cat option').forEach(function(o){have[o.value.toLowerCase()]=1});
+  (S.customCats||[]).forEach(function(c){
+    var k=String(c).toLowerCase();if(have[k])return;have[k]=1;
+    var o=document.createElement('option');o.textContent=c;o.value=c;o.setAttribute('data-custom','1');
+    sel.insertBefore(o,sel.lastElementChild);
+  });
+  var target=cur;
+  if(S.wantCat&&$$('#r-cat option').some(function(o){return o.value===S.wantCat})){target=S.wantCat;S.wantCat=null}
+  sel.value=target;
+}
+function addCategory(){
+  var name=$('#cat-new').value.trim().replace(/\s+/g,' ').slice(0,40);
+  if(!name)return;
+  var dup=$$('#r-cat option').filter(function(o){return o.value.toLowerCase()===name.toLowerCase()})[0];
+  if(dup){$('#r-cat').value=dup.value;$('#cat-new').value='';$('#cat-add').hidden=true;saveBatch();applySuggest();return}
+  if(!S.db){showNotice('ยังไม่ได้เชื่อมต่อฐานข้อมูล เพิ่มประเภทไม่ได้',true);return}
+  enqueue(function(){
+    var ref=S.db.doc('settings/lists');
+    return ref.get().then(function(s){
+      var cur=s.exists&&s.data().categories?s.data().categories.slice():[];
+      if(!cur.some(function(c){return String(c).toLowerCase()===name.toLowerCase()}))cur.push(name);
+      return ref.set({categories:cur}).then(function(){
+        S.customCats=cur;renderCats();$('#r-cat').value=name;S.wantCat=null;
+        saveBatch();renderDefaults();applySuggest();
+        $('#cat-new').value='';$('#cat-add').hidden=true;
+      });
+    }).catch(function(e){showNotice(friendly(e),true)});
+  });
+}
+$('#cat-add-toggle').addEventListener('click',function(){var r=$('#cat-add');r.hidden=!r.hidden;if(!r.hidden)$('#cat-new').focus()});
+$('#cat-add-ok').addEventListener('click',addCategory);
+$('#cat-new').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();addCategory()}});
+var brandAuto=true;
+function autoBrand(){
+  if(!brandAuto&&$('#r-brand').value.trim())return;
+  var b=detectBrand($('#r-product').value);
+  $('#r-brand').value=b?b.n:'';brandAuto=true;
+}
+function applySuggest(){
+  var det=detectBrand($('#r-product').value);
+  var r=learned($('#r-product').value,$('#r-brand').value.trim()||(det&&det.n)||'',$('#r-cat').value);
+  var note=$('#r-wnote');
+  if(!r){note.textContent='';return}
+  $('#r-months').value=r.m;syncChips();saveBatch();
+  note.textContent='เติมประกัน '+r.m+' เดือนให้แล้ว '+r.src;
+}
+function renderDefaults(){
+  var g=$('#defs-grid');
+  if(g.contains(document.activeElement))return;
+  var cats=$$('#r-cat option').map(function(o){return o.value});
+  g.innerHTML=cats.map(function(c,i){
+    var v=S.defaults&&S.defaults[c]!=null?S.defaults[c]:DEF_MONTHS[c];
+    return '<div class="field"><label for="df-'+i+'">'+esc(c)+'</label><input type="number" id="df-'+i+'" data-cat="'+esc(c)+'" min="0" max="120" value="'+(v==null?'':v)+'"></div>';
+  }).join('');
+}
+
+/* ---------- sound ---------- */
+var actx=null;
+function beep(kind){
+  if(!S.sound)return;
+  try{
+    actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    var o=actx.createOscillator(),g=actx.createGain();
+    o.connect(g);g.connect(actx.destination);o.type='sine';
+    o.frequency.value=kind==='ok'?880:(kind==='warn'?560:220);
+    g.gain.value=0.07;
+    o.start();o.stop(actx.currentTime+(kind==='ok'?0.08:0.22));
+  }catch(e){}
+}
+function renderSound(){var b=$('#sound');b.setAttribute('aria-pressed',S.sound?'true':'false');b.textContent='เสียงบี๊บ: '+(S.sound?'เปิด':'ปิด')}
+$('#sound').addEventListener('click',function(){S.sound=!S.sound;LS.set('sd.sound',S.sound);renderSound();if(S.sound)beep('ok')});
+
+/* ---------- queue + db access ---------- */
+var chain=Promise.resolve();
+function enqueue(fn){chain=chain.then(fn).catch(function(){})}
+function friendly(e){
+  var c=e&&e.code;
+  if(c==='invalid_argument')return 'บันทึกไม่ได้ ตรวจว่ายังเข้าสู่ระบบอยู่ และบัญชีนี้มีสิทธิ์บันทึก';
+  if(c==='quota_exceeded')return 'พื้นที่ฐานข้อมูลเต็ม ลบรายการเก่าก่อนจึงจะเพิ่มได้';
+  if(c==='resource_exhausted')return 'ยิงเร็วเกินไป รอสักครู่แล้วลองอีกครั้ง';
+  return 'บันทึกไม่สำเร็จ ลองยิงอีกครั้ง';
+}
+function getUnit(id){
+  if(S.byId.has(id))return Promise.resolve(S.byId.get(id));
+  return S.db.doc('units/'+id).get().then(function(s){return s.exists?Object.assign({id:id},s.data()):null});
+}
+
+/* ---------- logs ---------- */
+function push(mode,serial,tone,msg,sub){
+  var L=S.logs[mode];
+  L.unshift({t:new Date(),serial:serial,tone:tone,msg:msg,sub:sub||''});
+  if(L.length>60)L.length=60;
+  if(tone==='ok')S.counts[mode]++;
+  beep(tone);
+  renderLog(mode);
+}
+function renderLog(mode){
+  var p=mode==='receive'?'r':'s';
+  var ul=$('#'+p+'-log'),L=S.logs[mode];
+  $('#'+p+'-count').textContent=S.counts[mode];
+  if(!L.length){
+    ul.innerHTML='<li style="display:block"><p class="empty">'+(mode==='receive'
+      ?'<b>ยังไม่ได้ยิงเครื่องไหน</b> กรอกชื่อสินค้าด้านซ้าย แล้วยิงบาร์โค้ด Serial เครื่องแรก'
+      :'<b>ยังไม่ได้ขายเครื่องไหน</b> ยิง Serial ของเครื่องที่ลูกค้าซื้อ')+'</p></li>';
+    return;
+  }
+  ul.innerHTML=L.map(function(r){
+    var g=r.tone==='ok'?'✓':(r.tone==='warn'?'!':'✕');
+    return '<li class="'+r.tone+'"><span class="g" aria-hidden="true">'+g+'</span><span><span class="s">'+esc(r.serial)+'</span><span class="m">'+esc(r.msg)+(r.sub?' · '+esc(r.sub):'')+'</span></span><time>'+fmtTime(r.t)+'</time></li>';
+  }).join('');
+}
+
+/* ---------- RECEIVE ---------- */
+function receive(raw){
+  var serial=norm(raw);if(!serial)return Promise.resolve();
+  if(!S.db){push('receive',serial,'err','ยังไม่ได้เชื่อมต่อฐานข้อมูล');return Promise.resolve()}
+  if(serial.length<4||serial.length>64){push('receive',serial,'err','Serial ต้องยาว 4–64 ตัวอักษร ตรวจว่ายิงถูกบาร์โค้ด');return Promise.resolve()}
+  var product=$('#r-product').value.trim();
+  if(!product){push('receive',serial,'err','ยังไม่ได้ใส่ชื่อสินค้า กรอกด้านซ้ายแล้วยิงใหม่');$('#r-product').focus();return Promise.resolve()}
+  var id=sid(serial);
+  return getUnit(id).then(function(ex){
+    if(ex){
+      push('receive',serial,'warn',ex.status==='sold'?'ซ้ำ: เครื่องนี้ขายไปแล้ว':'ซ้ำ: อยู่ในสต็อกแล้ว',ex.product);
+      return;
+    }
+    var months=clampMonths($('#r-months').value,12);
+    var doc={serial:serial,product:product,brand:$('#r-brand').value.trim(),category:$('#r-cat').value,supplier:$('#r-sup').value.trim(),
+      warrantyMonths:months,status:'in_stock',receivedAt:new Date().toISOString(),example:false};
+    return S.db.doc('units/'+id).set(doc).then(function(){
+      push('receive',serial,'ok','รับเข้าแล้ว',product+' · ประกัน '+months+' เดือน');
+    });
+  }).catch(function(e){push('receive',serial,'err',friendly(e))});
+}
+
+/* ---------- SELL ---------- */
+function sell(raw){
+  var serial=norm(raw);if(!serial)return Promise.resolve();
+  if(!S.db){push('sell',serial,'err','ยังไม่ได้เชื่อมต่อฐานข้อมูล');return Promise.resolve()}
+  var id=sid(serial);
+  return getUnit(id).then(function(ex){
+    if(!ex){push('sell',serial,'err','ไม่พบ Serial นี้ในสต็อก ยังไม่ได้รับเข้า หรือพิมพ์ผิด');return}
+    if(ex.status==='sold'){
+      push('sell',serial,'warn','ขายไปแล้วเมื่อ '+fmtDate(ex.soldAt)+(ex.customer?' ให้ '+ex.customer:''),ex.product);return;
+    }
+    var months=clampMonths($('#s-months').value,ex.warrantyMonths==null?12:ex.warrantyMonths);
+    var now=new Date(),end=addMonths(now,months);
+    return S.db.doc('units/'+id).update({
+      status:'sold',soldAt:now.toISOString(),customer:$('#s-cust').value.trim(),phone:$('#s-phone').value.trim(),
+      invoice:$('#s-inv').value.trim(),warrantyMonths:months,warrantyEnd:ymd(end)
+    }).then(function(){
+      push('sell',serial,'ok','ขายออกแล้ว ประกันถึง '+fmtDate(end),ex.product);
+    });
+  }).catch(function(e){push('sell',serial,'err',friendly(e))});
+}
+
+/* ---------- CHECK ---------- */
+function check(raw){
+  var serial=norm(raw);if(!serial)return Promise.resolve();
+  if(!S.db){S.check={serial:serial,u:null,offline:true};renderCheck();return Promise.resolve()}
+  return getUnit(sid(serial)).then(function(u){
+    S.check={serial:serial,u:u};
+    var w=warranty(u);
+    beep(!u?'err':(w.state==='exp'?'err':(w.state==='soon'||w.state==='stock'?'warn':'ok')));
+    renderCheck();
+  }).catch(function(){S.check={serial:serial,u:null,offline:true};renderCheck()});
+}
+function kv(rows){
+  return '<dl class="kv">'+rows.filter(function(r){return r[1]!==''&&r[1]!=null&&r[1]!=='—'}).map(function(r){
+    return '<div><dt>'+esc(r[0])+'</dt><dd>'+esc(r[1])+'</dd></div>';
+  }).join('')+'</dl>';
+}
+function unitRows(u){
+  var w=warranty(u);
+  return [['ยี่ห้อ',u.brand||(brandInfo(u)||{}).n],['ประเภท',u.category],['ผู้จำหน่าย / PO',u.supplier],['รับเข้าเมื่อ',fmtDate(u.receivedAt)],
+    ['ขายเมื่อ',u.status==='sold'?fmtDate(u.soldAt):''],['ลูกค้า',u.customer],['เบอร์โทร',u.phone],['เลขที่ใบขาย',u.invoice],
+    ['ระยะประกัน',u.warrantyMonths!=null?u.warrantyMonths+' เดือน':''],['ประกันสิ้นสุด',w.end?fmtDate(w.end):'']];
+}
+function renderCheck(){
+  var el=$('#c-result'),c=S.check;
+  if(!c){el.innerHTML='<p class="empty">ยิง Serial จากสติกเกอร์ใต้เครื่องหรือกล่อง ผลประกันจะขึ้นตรงนี้</p>';return}
+  if(!c.u){
+    el.innerHTML='<div class="result"><div class="verdict none"><span class="v">'+(c.offline?'เช็คไม่ได้':'ไม่พบ Serial นี้')+'</span><span class="d">'+
+      (c.offline?'ยังเชื่อมต่อฐานข้อมูลไม่ได้ ลองใหม่อีกครั้ง':'ไม่มีในระบบ ตรวจตัวเลขอีกครั้ง หรือเครื่องอาจไม่ได้ซื้อจากร้านนี้')+
+      '</span></div><div class="body"><div class="sticker">'+esc(c.serial)+'</div></div></div>';
+    return;
+  }
+  var u=c.u,w=warranty(u),big,sub;
+  if(w.state==='stock'){big='อยู่ในสต็อก ยังไม่ได้ขาย';sub='ประกันเริ่มนับเมื่อขายออก ('+(u.warrantyMonths!=null?u.warrantyMonths:12)+' เดือน)'}
+  else if(w.state==='exp'){big='หมดประกันแล้ว';sub='สิ้นสุดเมื่อ '+fmtDate(w.end)+' ('+(-w.days)+' วันที่แล้ว)'}
+  else if(w.days===0){big=w.state==='soon'?'วันสุดท้ายของประกัน':'ในประกัน';sub='สิ้นสุดวันนี้ '+fmtDate(w.end)}
+  else{big=w.state==='soon'?'ใกล้หมดประกัน':'ในประกัน';sub='เหลือ '+w.days+' วัน · สิ้นสุด '+fmtDate(w.end)}
+  el.innerHTML='<div class="result"><div class="verdict '+w.state+'"><span class="v">'+esc(big)+'</span><span class="d">'+esc(sub)+'</span></div>'+
+    '<div class="body"><div class="sticker">'+esc(u.serial||c.serial)+'</div><strong>'+esc(u.product||'')+'</strong>'+kv(unitRows(u))+linkBtns(u)+'</div></div>';
+}
+
+/* ---------- STOCK ---------- */
+function unitTs(u){return u.soldAt||u.receivedAt||''}
+function filtered(){
+  var q=S.q.trim().toUpperCase();
+  return S.units.filter(function(u){
+    if(S.filter!=='all'&&warranty(u).state!==S.filter)return false;
+    if(!q)return true;
+    return [u.serial,u.product,u.brand,u.customer,u.invoice,u.phone,u.supplier].some(function(v){return v&&String(v).toUpperCase().indexOf(q)>=0});
+  }).sort(function(a,b){return unitTs(a)<unitTs(b)?1:-1});
+}
+function renderStock(){
+  var tb=$('#st-body'),note=$('#st-note');
+  if(!S.loaded){tb.innerHTML='<tr><td colspan="6"><p class="empty">กำลังโหลดข้อมูล…</p></td></tr>';note.textContent='';return}
+  if(!S.units.length){
+    tb.innerHTML='<tr><td colspan="6"><p class="empty"><b>ยังไม่มีสินค้าในระบบ</b> ไปที่แท็บ “รับเข้า” แล้วยิงบาร์โค้ด Serial เครื่องแรก</p></td></tr>';note.textContent='';return;
+  }
+  var rows=filtered(),total=rows.length,shown=rows.slice(0,200);
+  if(!total){tb.innerHTML='<tr><td colspan="6"><p class="empty">ไม่พบรายการที่ตรงกับคำค้นหาหรือตัวกรอง</p></td></tr>';note.textContent='';return}
+  var html='';
+  shown.forEach(function(u){
+    var w=warranty(u);
+    html+='<tr><td><button class="link" type="button" data-open="'+esc(u.id)+'" aria-expanded="'+(S.open===u.id)+'">'+esc(u.serial||u.id)+'</button></td>'+
+      '<td>'+esc(u.product||'')+(u.example?' <span class="tnote">(ตัวอย่าง)</span>':'')+'</td>'+
+      '<td><span class="pill '+w.state+'">'+STATE_TH[w.state]+'</span></td>'+
+      '<td>'+esc(u.customer||'—')+'</td>'+
+      '<td class="num">'+(w.end?esc(fmtDate(w.end)):'—')+'</td>'+
+      '<td class="num">'+esc(fmtDate(u.receivedAt))+'</td></tr>';
+    if(S.open===u.id){
+      var a=S.armed;
+      var unsell=u.status==='sold'?'<button type="button" class="btn'+(a&&a.act==='unsell'&&a.id===u.id?' armed':'')+'" data-act="unsell" data-id="'+esc(u.id)+'">'+(a&&a.act==='unsell'&&a.id===u.id?'กดอีกครั้งเพื่อยืนยันยกเลิกการขาย':'ยกเลิกการขาย (คืนเข้าสต็อก)')+'</button>':'';
+      var del='<button type="button" class="btn danger'+(a&&a.act==='delete'&&a.id===u.id?' armed':'')+'" data-act="delete" data-id="'+esc(u.id)+'">'+(a&&a.act==='delete'&&a.id===u.id?'กดอีกครั้งเพื่อยืนยันลบ':'ลบรายการนี้')+'</button>';
+      html+='<tr class="detail"><td colspan="6"><div class="detail-in">'+kv(unitRows(u))+linkBtns(u)+'<div class="actions"><a class="btn" href="qr.html?s='+encodeURIComponent(u.serial||u.id)+'&p='+encodeURIComponent(u.product||'')+'" target="_blank" rel="noopener">พิมพ์ QR</a>'+unsell+del+'</div></div></td></tr>';
+    }
+  });
+  tb.innerHTML=html;
+  note.textContent=total>shown.length?('แสดง '+shown.length+' จาก '+total+' รายการ พิมพ์ค้นหาเพื่อกรองให้แคบลง'):('ทั้งหมด '+total+' รายการ');
+}
+$('#st-body').addEventListener('click',function(e){
+  var o=e.target.closest('[data-open]');
+  if(o){S.open=S.open===o.getAttribute('data-open')?null:o.getAttribute('data-open');S.armed=null;renderStock();return}
+  var b=e.target.closest('[data-act]');
+  if(!b||!S.db)return;
+  var act=b.getAttribute('data-act'),id=b.getAttribute('data-id');
+  if(!(S.armed&&S.armed.act===act&&S.armed.id===id)){
+    S.armed={act:act,id:id};renderStock();
+    setTimeout(function(){if(S.armed&&S.armed.act===act&&S.armed.id===id){S.armed=null;renderStock()}},4000);
+    return;
+  }
+  S.armed=null;
+  var ref=S.db.doc('units/'+id);
+  enqueue(function(){
+    var p=act==='delete'?ref.delete():ref.update({status:'in_stock',soldAt:null,customer:'',phone:'',invoice:'',warrantyEnd:null});
+    if(act==='delete')S.open=null;
+    return p.catch(function(err){showNotice(friendly(err),true)});
+  });
+});
+$('#st-q').addEventListener('input',function(e){S.q=e.target.value;renderStock()});
+$('#st-q').addEventListener('keydown',function(e){if(e.key==='Enter')e.preventDefault()});
+$('#st-filters').addEventListener('click',function(e){
+  var b=e.target.closest('[data-f]');if(!b)return;
+  S.filter=b.getAttribute('data-f');
+  $$('#st-filters .chip').forEach(function(c){c.setAttribute('aria-pressed',c===b?'true':'false')});
+  renderStock();
+});
+
+/* CSV export */
+function csvCell(v){v=v==null?'':String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
+$('#export').addEventListener('click',function(){
+  if(!S.dl)return;
+  var head=['Serial','สินค้า','ยี่ห้อ','ประเภท','สถานะ','ผู้จำหน่าย/PO','รับเข้า','ขายเมื่อ','ลูกค้า','เบอร์โทร','เลขที่ใบขาย','ประกัน (เดือน)','ประกันสิ้นสุด'];
+  var lines=[head.map(csvCell).join(',')];
+  filtered().forEach(function(u){
+    var w=warranty(u);
+    lines.push([u.serial,u.product,u.brand||(brandInfo(u)||{}).n,u.category,STATE_TH[w.state],u.supplier,u.receivedAt?ymd(new Date(u.receivedAt)):'',
+      u.soldAt?ymd(new Date(u.soldAt)):'',u.customer,u.phone,u.invoice,u.warrantyMonths,u.warrantyEnd].map(csvCell).join(','));
+  });
+  S.dl.save({filename:'serial-stock-'+ymd(new Date())+'.csv',data:'﻿'+lines.join('\r\n')}).catch(function(err){
+    if(err&&err.code!=='declined')showNotice('บันทึกไฟล์ไม่สำเร็จ ลองอีกครั้ง',true);
+  });
+});
+
+/* ---------- stats, notices, examples ---------- */
+function renderStats(){
+  var st=0,sold=0,soon=0;
+  S.units.forEach(function(u){var w=warranty(u);if(w.state==='stock')st++;else{sold++;if(w.state==='soon')soon++}});
+  $('#n-stock').textContent=st;$('#n-sold').textContent=sold;$('#n-soon').textContent=soon;
+  var ex=S.units.filter(function(u){return u.example}).length;
+  var box=$('#examples');
+  box.hidden=!ex;
+  if(ex){$('#examples-text').textContent='มีข้อมูลตัวอย่าง '+ex+' รายการ ไว้ลองยิงรับเข้า ขายออก และเช็คประกัน';}
+  var names={};S.units.forEach(function(u){if(u.product)names[u.product]=1});
+  $('#products').innerHTML=Object.keys(names).sort().map(function(n){return '<option value="'+esc(n)+'">'}).join('');
+  var bn={};BRANDS.forEach(function(b){bn[b.n]=1});OTHER_BRANDS.forEach(function(n){bn[n]=1});S.units.forEach(function(u){if(u.brand)bn[u.brand]=1});
+  $('#brands').innerHTML=Object.keys(bn).sort().map(function(n){return '<option value="'+esc(n)+'">'}).join('');
+}
+var noticeTimer=null;
+function showNotice(msg,bad){
+  var n=$('#notice');n.textContent=msg;n.className='notice'+(bad?' bad':'');n.hidden=false;
+  clearTimeout(noticeTimer);noticeTimer=setTimeout(function(){n.hidden=true},6000);
+}
+var clearArmed=false;
+$('#clear-examples').addEventListener('click',function(){
+  var b=this;
+  if(!clearArmed){clearArmed=true;b.textContent='กดอีกครั้งเพื่อยืนยันล้าง';setTimeout(function(){clearArmed=false;b.textContent='ล้างข้อมูลตัวอย่าง'},4000);return}
+  clearArmed=false;b.textContent='ล้างข้อมูลตัวอย่าง';
+  if(!S.db)return;
+  S.units.filter(function(u){return u.example}).forEach(function(u){
+    enqueue(function(){return S.db.doc('units/'+u.id).delete().catch(function(e){showNotice(friendly(e),true)})});
+  });
+});
+function renderStatus(){
+  var el=$('#status');
+  el.className='chip-status'+(S.err?' off':(S.loaded?' live':''));
+  el.lastChild.textContent=S.err?'ฐานข้อมูลไม่ตอบสนอง':(S.loaded?((window.Data&&window.Data.mode==='demo')?'โหมดทดลอง ข้อมูลอยู่ในเครื่องนี้เท่านั้น':'ออนไลน์ ข้อมูลใช้ร่วมกันทุกเครื่อง'):'กำลังเชื่อมต่อฐานข้อมูล…');
+}
+function renderAll(){renderStatus();renderStats();renderStock();if(S.check&&S.check.u){var f=S.byId.get(sid(S.check.serial));S.check.u=f||null;}renderCheck()}
+
+/* ---------- tabs + focus ---------- */
+var SCAN={receive:'#r-scan',sell:'#s-scan',check:'#c-scan',stock:'#st-q'};
+function setTab(name,noFocus){
+  S.tab=name;
+  $$('.tab').forEach(function(t){t.setAttribute('aria-selected',t.getAttribute('data-tab')===name?'true':'false')});
+  ['receive','sell','check','stock'].forEach(function(n){$('#panel-'+n).hidden=n!==name});
+  if(!noFocus){var el=$(SCAN[name]);if(el&&!(name==='receive'&&!$('#r-product').value.trim()))el.focus();else if(name==='receive')$('#r-product').focus()}
+}
+$$('.tab').forEach(function(t){t.addEventListener('click',function(){setTab(t.getAttribute('data-tab'))})});
+document.addEventListener('keydown',function(e){
+  if(e.ctrlKey||e.metaKey||e.altKey||!e.key||e.key.length!==1)return;
+  var a=document.activeElement;
+  if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))return;
+  var el=$(SCAN[S.tab]);if(el)el.focus();
+});
+
+function wireScan(formId,inputId,fn){
+  var f=$(formId),inp=$(inputId);
+  function go(){var v=inp.value;inp.value='';inp.focus();if(norm(v))enqueue(function(){return fn(v)})}
+  f.addEventListener('submit',function(e){e.preventDefault();go()});
+  inp.addEventListener('keydown',function(e){if(e.key==='Tab'&&inp.value.trim()){e.preventDefault();go()}});
+}
+wireScan('#f-receive','#r-scan',receive);
+wireScan('#f-sell','#s-scan',sell);
+wireScan('#f-check','#c-scan',check);
+
+/* receive settings */
+var B=LS.get('sd.batch',{});
+if(B.product)$('#r-product').value=B.product;
+if(B.cat){$('#r-cat').value=B.cat;S.wantCat=B.cat}
+if(B.sup)$('#r-sup').value=B.sup;
+if(B.brand){$('#r-brand').value=B.brand;brandAuto=false}
+if(B.months!=null)$('#r-months').value=B.months;
+function saveBatch(){LS.set('sd.batch',{product:$('#r-product').value,brand:$('#r-brand').value,cat:$('#r-cat').value,sup:$('#r-sup').value,months:$('#r-months').value})}
+function syncChips(){var v=$('#r-months').value;$$('#r-chips .chip').forEach(function(c){c.setAttribute('aria-pressed',c.getAttribute('data-m')===v?'true':'false')})}
+['#r-product','#r-brand','#r-cat','#r-sup','#r-months'].forEach(function(s){$(s).addEventListener('input',function(){saveBatch();syncChips()});$(s).addEventListener('change',saveBatch)});
+$('#r-chips').addEventListener('click',function(e){var b=e.target.closest('[data-m]');if(!b)return;$('#r-months').value=b.getAttribute('data-m');saveBatch();syncChips()});
+$('#r-product').addEventListener('input',autoBrand);
+$('#r-product').addEventListener('change',function(){autoBrand();applySuggest()});
+$('#r-brand').addEventListener('input',function(){brandAuto=!this.value.trim()});
+$('#r-brand').addEventListener('change',applySuggest);
+$('#r-cat').addEventListener('change',function(){S.wantCat=null;applySuggest()});
+$('#r-months').addEventListener('input',function(){$('#r-wnote').textContent=''});
+$('#r-chips').addEventListener('click',function(){$('#r-wnote').textContent=''});
+$('#r-product').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();autoBrand();applySuggest();$('#r-scan').focus()}});
+$('#defs-save').addEventListener('click',function(){
+  if(!S.db)return;
+  var out={};
+  $$('#defs-grid input').forEach(function(i){var n=parseInt(i.value,10);if(!isNaN(n))out[i.getAttribute('data-cat')]=Math.max(0,Math.min(120,n))});
+  enqueue(function(){
+    return S.db.doc('settings/warranty').set({defaults:out}).then(function(){
+      $('#defs-msg').textContent='บันทึกแล้ว';setTimeout(function(){$('#defs-msg').textContent=''},2500);
+    }).catch(function(e){showNotice(friendly(e),true)});
+  });
+});
+document.addEventListener('click',function(e){
+  var b=e.target.closest('[data-copy]');if(!b)return;
+  var txt=b.getAttribute('data-copy'),old=b.textContent;
+  function done(ok){b.textContent=ok?'คัดลอกแล้ว':'คัดลอกไม่ได้ ลากคลุม Serial ด้านบนเอง';setTimeout(function(){b.textContent=old},2000)}
+  try{navigator.clipboard.writeText(txt).then(function(){done(true)},function(){done(false)})}catch(err){done(false)}
+});
+$('#r-reset').addEventListener('click',function(){S.counts.receive=0;S.logs.receive=[];renderLog('receive');$('#r-product').focus();$('#r-product').select()});
+$('#s-reset').addEventListener('click',function(){S.counts.sell=0;S.logs.sell=[];['#s-cust','#s-phone','#s-inv','#s-months'].forEach(function(s){$(s).value=''});renderLog('sell');$('#s-cust').focus()});
+syncChips();
+
+/* ---------- boot ---------- */
+renderSound();renderLog('receive');renderLog('sell');renderStock();renderStatus();renderDefaults();
+setTab('receive',true);
+
+function lockWrites(){
+  var m='ดูข้อมูลได้อย่างเดียว บัญชีนี้บันทึกข้อมูลไม่ได้';
+  showNotice(m,false);document.getElementById('notice').hidden=false;clearTimeout(noticeTimer);
+  ['#r-scan','#s-scan','#r-product','#r-sup','#r-months','#r-cat','#s-cust','#s-phone','#s-inv','#s-months'].forEach(function(s){$(s).disabled=true});
+  $$('#f-receive button,#f-sell button,#r-chips button').forEach(function(b){b.disabled=true});
+}
+
+var D=window.Data;
+if(D.company){$('#company').textContent=D.company;$('#login-co').textContent=D.company;document.title='Serial Desk | '+D.company}
+$('#qr-bulk').addEventListener('click',function(){
+  var rows=filtered().slice(0,200).map(function(u){return {s:u.serial||u.id,p:u.product||''}});
+  if(!rows.length){showNotice('ไม่มีรายการให้พิมพ์ QR',true);return}
+  try{localStorage.setItem('fx.qr.queue',JSON.stringify(rows))}catch(e){showNotice('บันทึกรายการไม่ได้ ลองพิมพ์ทีละเครื่อง',true);return}
+  window.open('qr.html?q=1','_blank');
+});
+var started=false;
+function startApp(user){
+  if(started)return;started=true;
+  $('#login').hidden=true;$('#app').hidden=false;
+  $('#who').textContent=user&&user.email?user.email:'';
+  if(D.mode==='demo'){$('#demo-note').hidden=false;$('#logout').hidden=true;$('#who').hidden=true}
+  S.db=D.db;S.dl={save:function(o){return D.download(o.filename,o.data)}};
+  $('#export').hidden=false;
+  S.db.collection('units').onSnapshot(function(snap){
+    S.units=snap.docs.map(function(d){return Object.assign({id:d.id},d.data())});
+    S.byId=new Map(S.units.map(function(u){return [u.id,u]}));
+    S.loaded=true;S.err=false;renderAll();
+  },function(){S.err=true;renderStatus()});
+  S.db.doc('settings/warranty').onSnapshot(function(s){
+    var d=s.exists?s.data():null;
+    S.defaults=d&&d.defaults?d.defaults:{};renderDefaults();
+  },function(){});
+  S.db.doc('settings/lists').onSnapshot(function(s){
+    var d=s.exists?s.data():null;
+    S.customCats=d&&d.categories?d.categories.slice():[];renderCats();renderDefaults();
+  },function(){});
+  setTab('receive');
+}
+function showLogin(){$('#login').hidden=false;$('#app').hidden=true;setTimeout(function(){$('#l-email').focus()},0)}
+$('#f-login').addEventListener('submit',function(e){
+  e.preventDefault();
+  var go=$('#l-go'),er=$('#l-err');er.hidden=true;go.disabled=true;go.textContent='กำลังเข้าสู่ระบบ…';
+  D.auth.signIn($('#l-email').value.trim(),$('#l-pw').value).then(function(u){startApp(u)},function(err){
+    er.textContent=(err&&/network|fetch/i.test(String(err.message)))?'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจอินเทอร์เน็ตแล้วลองใหม่':'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
+    er.hidden=false;
+  }).then(function(){go.disabled=false;go.textContent='เข้าสู่ระบบ'});
+});
+$('#logout').addEventListener('click',function(){D.auth.signOut().then(function(){location.reload()},function(){location.reload()})});
+D.auth.user().then(function(u){if(u)startApp(u);else showLogin()},function(){showLogin()});
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "name": "flexi-warranty-check",
+  "private": true,
+  "description": "เว็บเก็บ Serial Number และเช็คประกัน ของบริษัท เฟล็กซี่ โซลูชั่น จำกัด (นครราชสีมา)",
+  "scripts": {
+    "serve": "python3 -m http.server 8080 --directory docs",
+    "test:db": "node tests/db.test.mjs",
+    "test:e2e": "node tests/e2e.cjs",
+    "test": "npm run test:db && npm run test:e2e"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.12",
+    "playwright": "*"
+  }
+}

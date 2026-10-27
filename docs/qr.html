@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>พิมพ์ป้าย QR</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#E9EEF1;--surface:#FFFFFF;--surface-2:#F2F5F7;--ink:#12212B;--ink-2:#51626D;--line:#CBD5DB;
+  --accent:#0A6C85;--accent-ink:#FFFFFF;--warn:#7D5200;--warn-bg:#FBEFCF;
+  --f-display:'Chakra Petch','IBM Plex Sans Thai',system-ui,sans-serif;
+  --f-body:'IBM Plex Sans Thai',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){--bg:#0E161B;--surface:#16222A;--surface-2:#1C2B34;--ink:#E4EDF1;--ink-2:#8FA3AE;--line:#2B3C46;--accent:#4FC1DD;--accent-ink:#06222B;--warn:#F0C15A;--warn-bg:#33280E;color-scheme:dark}
+}
+:root[data-theme="dark"]{--bg:#0E161B;--surface:#16222A;--surface-2:#1C2B34;--ink:#E4EDF1;--ink-2:#8FA3AE;--line:#2B3C46;--accent:#4FC1DD;--accent-ink:#06222B;--warn:#F0C15A;--warn-bg:#33280E;color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:max(20px,env(safe-area-inset-top,0px)) 40px}
+.wrap{max-width:1000px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1{margin:0;font-family:var(--f-display);font-size:1.5rem;font-weight:700}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field.full{grid-column:1/-1}
+label{font-size:.82rem;color:var(--ink-2);font-weight:500}
+input[type=text],select,textarea{width:100%;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:.55rem .7rem;font:inherit;color:inherit}
+textarea{font-family:var(--f-mono);min-height:8rem;resize:vertical}
+.chk{display:flex;align-items:center;gap:8px;font-size:.9rem;color:var(--ink)}
+.chk input{width:1.1rem;height:1.1rem}
+.hint{margin:0;font-size:.82rem;color:var(--ink-2)}
+.warn{padding:10px 14px;border-radius:6px;background:var(--warn-bg);color:var(--warn);font-size:.9rem}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.primary{background:var(--accent);color:var(--accent-ink);border:0;border-radius:4px;padding:.6rem 1.1rem;font:inherit;font-weight:600;cursor:pointer}
+.ghost{background:transparent;border:1px solid var(--line);border-radius:4px;padding:.6rem 1rem;font:inherit;color:inherit;cursor:pointer;text-decoration:none;display:inline-block}
+.sheet{display:flex;flex-wrap:wrap;gap:4mm;align-items:flex-start;--w:60mm;--h:30mm}
+.st{width:var(--w);height:var(--h);background:#fff;color:#000;border:1px dashed #8a8a8a;display:flex;gap:1.6mm;align-items:center;padding:1.6mm;overflow:hidden;break-inside:avoid;page-break-inside:avoid}
+.st .q{flex:none;width:calc(var(--h) - 3.2mm);height:calc(var(--h) - 3.2mm)}
+.st .q svg{width:100%;height:100%;display:block}
+.st .t{min-width:0;display:flex;flex-direction:column;gap:.6mm;justify-content:center;line-height:1.15}
+.st .a{font-size:2.9mm;font-weight:600}
+.st .s{font-family:var(--f-mono);font-size:2.6mm;overflow-wrap:anywhere;font-weight:500}
+.st .p{font-size:2.3mm;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.st .c{font-size:1.9mm;color:#444}
+@media print{
+  @page{margin:6mm}
+  body{background:#fff;padding:0}
+  .noprint{display:none!important}
+  .sheet{gap:2mm}
+  .st{border:.2mm solid #bbb}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="noprint">
+    <h1>พิมพ์ป้าย QR</h1>
+    <p class="hint" id="co"></p>
+  </div>
+
+  <div class="box noprint">
+    <div class="field full">
+      <label for="base">ที่อยู่หน้าเช็คประกัน (QR จะชี้ไปที่นี่)</label>
+      <input type="text" id="base" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="warn full" id="base-warn" hidden>ที่อยู่นี้ใช้ได้เฉพาะเครื่องนี้ ลูกค้าสแกนแล้วเปิดไม่ได้ เปลี่ยนเป็นที่อยู่เว็บจริงของร้านก่อนพิมพ์ติดสินค้า</div>
+    <div class="field full">
+      <label for="list">Serial ที่จะพิมพ์ บรรทัดละเครื่อง ใส่ชื่อสินค้าต่อท้ายได้ ขั้นด้วยคอมมาหรือแท็บ</label>
+      <textarea id="list" placeholder="R9NXCV12345678A, ASUS TUF Gaming A15&#10;M4KLTP90817263B, Lenovo IdeaPad Slim 3" spellcheck="false"></textarea>
+    </div>
+    <div class="field">
+      <label for="size">ขนาดป้าย</label>
+      <select id="size">
+        <option value="50x25">50 × 25 มม.</option>
+        <option value="60x30" selected>60 × 30 มม.</option>
+        <option value="70x40">70 × 40 มม.</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="act">ข้อความหัวป้าย</label>
+      <input type="text" id="act" value="สแกนเช็คประกัน" maxlength="40" autocomplete="off">
+    </div>
+    <label class="chk"><input type="checkbox" id="showprod" checked> แสดงชื่อสินค้า</label>
+    <label class="chk"><input type="checkbox" id="showco" checked> แสดงชื่อร้าน</label>
+    <div class="actions full">
+      <button class="primary" type="button" id="print">พิมพ์</button>
+      <a class="ghost" href="index.html">กลับหน้าพนักงาน</a>
+    </div>
+    <p class="hint full" id="count"></p>
+  </div>
+
+  <div class="sheet" id="sheet" aria-label="ตัวอย่างป้าย"></div>
+</div>
+
+<script src="config.js"></script>
+<script src="vendor/qrcode.js"></script>
+<script>
+(function(){
+'use strict';
+var $=function(s){return document.querySelector(s)};
+var esc=function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})};
+var C=window.APP_CONFIG||{};
+var company=C.COMPANY||'';
+$('#co').textContent=company?('ป้ายสำหรับ '+company):'';
+
+var base=new URL('check.html',location.href);base.search='';base.hash='';
+$('#base').value=base.href;
+
+var qp=new URLSearchParams(location.search);
+var items=[];
+if(qp.get('s')){items.push({s:qp.get('s'),p:qp.get('p')||''})}
+else if(qp.get('q')){
+  try{items=(JSON.parse(localStorage.getItem('fx.qr.queue'))||[]).filter(function(x){return x&&x.s})}catch(e){items=[]}
+}
+$('#list').value=items.map(function(x){return x.p?x.s+', '+x.p:x.s}).join('\n');
+
+function parse(){
+  return $('#list').value.split(/\r?\n/).map(function(l){
+    l=l.trim();if(!l)return null;
+    var m=/^([^,\t]+)[,\t]\s*(.*)$/.exec(l);
+    var s=(m?m[1]:l).replace(/\s+/g,'').toUpperCase();
+    return s?{s:s,p:m?m[2].trim():''}:null;
+  }).filter(Boolean);
+}
+function svg(text){
+  var q=qrcode(0,'M');q.addData(text);q.make();
+  return q.createSvgTag({scalable:true,margin:0});
+}
+function url(serial){
+  var b=$('#base').value.trim();
+  try{var u=new URL(b);u.searchParams.set('s',serial);return u.href}catch(e){return null}
+}
+function render(){
+  var list=parse(),sz=$('#size').value.split('x');
+  var sh=$('#sheet');sh.style.setProperty('--w',sz[0]+'mm');sh.style.setProperty('--h',sz[1]+'mm');
+  var host='';try{host=new URL($('#base').value.trim()).hostname}catch(e){}
+  $('#base-warn').hidden=!(location.protocol==='file:'||/^(localhost|127\.|0\.0\.0\.0|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host)||!host);
+  var showP=$('#showprod').checked,showC=$('#showco').checked,act=$('#act').value.trim();
+  var bad=0,html='';
+  list.forEach(function(x){
+    var u=url(x.s);if(!u){bad++;return}
+    html+='<div class="st"><div class="q">'+svg(u)+'</div><div class="t">'+
+      (act?'<div class="a">'+esc(act)+'</div>':'')+'<div class="s">'+esc(x.s)+'</div>'+
+      (showP&&x.p?'<div class="p">'+esc(x.p)+'</div>':'')+(showC&&company?'<div class="c">'+esc(company)+'</div>':'')+'</div></div>';
+  });
+  sh.innerHTML=html;
+  $('#count').textContent=bad?'ที่อยู่หน้าเช็คไม่ถูกต้อง (ต้องขึ้นต้นด้วย https://)':(list.length?('ป้าย '+list.length+' ใบ'):'ยังไม่มี Serial ใส่ในช่องด้านบนเพื่อดูตัวอย่างป้าย');
+}
+['#base','#list','#size','#act','#showprod','#showco'].forEach(function(s){$(s).addEventListener('input',render);$(s).addEventListener('change',render)});
+$('#print').addEventListener('click',function(){
+  if(!parse().length){$('#count').textContent='ยังไม่มี Serial ให้พิมพ์';return}
+  window.print();
+});
+render();
+})();
+</script>
+</body>
+</html>
